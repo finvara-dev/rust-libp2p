@@ -19,7 +19,7 @@
 // DEALINGS IN THE SOFTWARE.
 
 use std::{
-    io::{self},
+    io,
     pin::Pin,
     task::{Context, Poll},
 };
