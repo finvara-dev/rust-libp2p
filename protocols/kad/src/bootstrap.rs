@@ -85,9 +85,7 @@ impl Status {
         if let Some(value) = self.current_bootstrap_requests.checked_sub(1) {
             self.current_bootstrap_requests = value;
         } else {
-            debug_assert!(
-                false,
-                "Could not decrement current_bootstrap_requests because it's already 0"
+            panic!("Could not decrement current_bootstrap_requests because it's already 0"
             );
         }
 

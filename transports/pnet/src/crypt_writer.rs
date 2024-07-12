@@ -121,7 +121,7 @@ impl<W: AsyncWrite> AsyncWrite for CryptWriter<W> {
             this.cipher.apply_keystream(&mut this.buf[0..count]);
             tracing::trace!(bytes=%count, "encrypted bytes");
         } else {
-            debug_assert!(false);
+            panic!();
         };
         // flush immediately afterwards, but if we get a pending we don't care
         if let Poll::Ready(Err(e)) = poll_flush_buf(&mut this.inner, this.buf, cx) {
