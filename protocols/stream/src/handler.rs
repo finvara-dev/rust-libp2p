@@ -120,9 +120,7 @@ impl ConnectionHandler for Handler {
                 info: (),
             }) => {
                 let Some((expected_protocol, sender)) = self.pending_upgrade.take() else {
-                    debug_assert!(
-                        false,
-                        "Negotiated an outbound stream without a back channel"
+                    panic!("Negotiated an outbound stream without a back channel"
                     );
                     return;
                 };
@@ -132,9 +130,7 @@ impl ConnectionHandler for Handler {
             }
             ConnectionEvent::DialUpgradeError(DialUpgradeError { error, info: () }) => {
                 let Some((p, sender)) = self.pending_upgrade.take() else {
-                    debug_assert!(
-                        false,
-                        "Received a `DialUpgradeError` without a back channel"
+                    panic!("Received a `DialUpgradeError` without a back channel"
                     );
                     return;
                 };

@@ -167,9 +167,7 @@ impl StreamMuxer for Connection {
                 Poll::Ready(Ok(stream))
             }
             None => {
-                debug_assert!(
-                    false,
-                    "Sender-end of channel should be owned by `RTCPeerConnection`"
+                panic!("Sender-end of channel should be owned by `RTCPeerConnection`"
                 );
 
                 Poll::Pending // Return `Pending` without registering a waker: If the channel is closed, we don't need to be called anymore.
