@@ -212,15 +212,14 @@ impl RtcPeerConnection {
     fn new_data_channel(&self, negotiated: bool) -> RtcDataChannel {
         const LABEL: &str = "";
 
-        let dc = match negotiated {
-            true => {
-                let mut options = RtcDataChannelInit::new();
-                options.negotiated(true).id(0); // id is only ever set to zero when negotiated is true
+        let dc = if negotiated {
+            let mut options = RtcDataChannelInit::new();
+            options.negotiated(true).id(0); // id is only ever set to zero when negotiated is true
 
-                self.inner
-                    .create_data_channel_with_data_channel_dict(LABEL, &options)
-            }
-            false => self.inner.create_data_channel(LABEL),
+            self.inner
+                .create_data_channel_with_data_channel_dict(LABEL, &options)
+        } else {
+            self.inner.create_data_channel(LABEL)
         };
         dc.set_binary_type(RtcDataChannelType::Arraybuffer); // Hardcoded here, it's the only type we use
 

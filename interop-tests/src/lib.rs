@@ -62,84 +62,81 @@ pub async fn run_test(
     // Run a ping interop test. Based on `is_dialer`, either dial the address
     // retrieved via `listenAddr` key over the redis connection. Or wait to be pinged and have
     // `dialerDone` key ready on the redis connection.
-    match is_dialer {
-        true => {
-            let result: Vec<String> = redis_client
-                .blpop("listenerAddr", test_timeout.as_secs())
-                .await?;
-            let other = result
-                .get(1)
-                .context("Failed to wait for listener to be ready")?;
+    if is_dialer {
+        let result: Vec<String> = redis_client
+            .blpop("listenerAddr", test_timeout.as_secs())
+            .await?;
+        let other = result
+            .get(1)
+            .context("Failed to wait for listener to be ready")?;
 
-            let handshake_start = Instant::now();
+        let handshake_start = Instant::now();
 
-            swarm.dial(other.parse::<Multiaddr>()?)?;
-            tracing::info!(listener=%other, "Test instance, dialing multiaddress");
+        swarm.dial(other.parse::<Multiaddr>()?)?;
+        tracing::info!(listener=%other, "Test instance, dialing multiaddress");
 
-            let rtt = loop {
-                if let Some(SwarmEvent::Behaviour(BehaviourEvent::Ping(ping::Event {
-                    result: Ok(rtt),
-                    ..
-                }))) = swarm.next().await
-                {
-                    tracing::info!(?rtt, "Ping successful");
-                    break rtt.as_micros() as f32 / 1000.;
+        let rtt = loop {
+            if let Some(SwarmEvent::Behaviour(BehaviourEvent::Ping(ping::Event {
+                result: Ok(rtt),
+                ..
+            }))) = swarm.next().await
+            {
+                tracing::info!(?rtt, "Ping successful");
+                break rtt.as_micros() as f32 / 1000.;
+            }
+        };
+
+        let handshake_plus_ping = handshake_start.elapsed().as_micros() as f32 / 1000.;
+        Ok(Report {
+            handshake_plus_one_rtt_millis: handshake_plus_ping,
+            ping_rtt_millis: rtt,
+        })
+    } else {
+        // Listen if we haven't done so already.
+        // This is a hack until https://github.com/libp2p/rust-libp2p/issues/4071 is fixed at which point we can do this unconditionally here.
+        let id = match maybe_id {
+            None => swarm.listen_on(local_addr.parse()?)?,
+            Some(id) => id,
+        };
+
+        tracing::info!(
+            address=%local_addr,
+            "Test instance, listening for incoming connections on address"
+        );
+
+        loop {
+            if let Some(SwarmEvent::NewListenAddr {
+                listener_id,
+                address,
+            }) = swarm.next().await
+            {
+                if address.to_string().contains("127.0.0.1") {
+                    continue;
                 }
-            };
-
-            let handshake_plus_ping = handshake_start.elapsed().as_micros() as f32 / 1000.;
-            Ok(Report {
-                handshake_plus_one_rtt_millis: handshake_plus_ping,
-                ping_rtt_millis: rtt,
-            })
-        }
-        false => {
-            // Listen if we haven't done so already.
-            // This is a hack until https://github.com/libp2p/rust-libp2p/issues/4071 is fixed at which point we can do this unconditionally here.
-            let id = match maybe_id {
-                None => swarm.listen_on(local_addr.parse()?)?,
-                Some(id) => id,
-            };
-
-            tracing::info!(
-                address=%local_addr,
-                "Test instance, listening for incoming connections on address"
-            );
-
-            loop {
-                if let Some(SwarmEvent::NewListenAddr {
-                    listener_id,
-                    address,
-                }) = swarm.next().await
-                {
-                    if address.to_string().contains("127.0.0.1") {
-                        continue;
-                    }
-                    if listener_id == id {
-                        let ma = format!("{address}/p2p/{}", swarm.local_peer_id());
-                        redis_client.rpush("listenerAddr", ma.clone()).await?;
-                        break;
-                    }
+                if listener_id == id {
+                    let ma = format!("{address}/p2p/{}", swarm.local_peer_id());
+                    redis_client.rpush("listenerAddr", ma.clone()).await?;
+                    break;
                 }
             }
-
-            // Drive Swarm while we await for `dialerDone` to be ready.
-            futures::future::select(
-                async move {
-                    loop {
-                        let event = swarm.next().await.unwrap();
-
-                        tracing::debug!("{event:?}");
-                    }
-                }
-                .boxed(),
-                arch::sleep(test_timeout),
-            )
-            .await;
-
-            // The loop never ends so if we get here, we hit the timeout.
-            bail!("Test should have been killed by the test runner!");
         }
+
+        // Drive Swarm while we await for `dialerDone` to be ready.
+        futures::future::select(
+            async move {
+                loop {
+                    let event = swarm.next().await.unwrap();
+
+                    tracing::debug!("{event:?}");
+                }
+            }
+            .boxed(),
+            arch::sleep(test_timeout),
+        )
+        .await;
+
+        // The loop never ends so if we get here, we hit the timeout.
+        bail!("Test should have been killed by the test runner!");
     }
 }
 
