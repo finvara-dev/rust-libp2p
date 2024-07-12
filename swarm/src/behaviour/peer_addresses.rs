@@ -146,7 +146,7 @@ mod tests {
         assert!(expected_addrs.contains(&addr1));
         assert!(expected_addrs.contains(&addr2));
 
-        let expected = cache.get(&peer_id).collect::<Vec<Multiaddr>>().len();
+        let expected = cache.get(&peer_id).count();
         assert_eq!(expected, 2);
 
         assert!(changed);
