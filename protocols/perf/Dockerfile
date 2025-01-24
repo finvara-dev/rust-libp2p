@@ -11,7 +11,7 @@ RUN --mount=type=cache,target=./target \
 RUN --mount=type=cache,target=./target \
     mv ./target/release/perf /usr/local/bin/perf
 
-FROM debian:bullseye-slim
+FROM debian:12.9-slim
 
 COPY --from=builder /usr/local/bin/perf /app/perf
 
